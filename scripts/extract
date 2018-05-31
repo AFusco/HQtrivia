@@ -1,0 +1,34 @@
+#!/bin/bash
+
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+WHITELIST="$(cat $SCRIPTPATH/../config/alphabet)"
+TMP_FILE=$(mktemp /tmp/hqtrivia.XXXXXX.png)
+
+function usage() {
+    echo "Usage: $0 [inputImage]"
+    exit -1
+}
+
+if [ $# -ne 1 ]; then
+    echo "No arguments supplied"
+    usage
+fi
+
+if [ ! -f $1 ]; then
+    echo "Input image not found"
+    usage
+fi
+
+
+# Run Text cleaning
+$SCRIPTPATH/textcleaner -g "$1" "$TMP_FILE"
+
+OUTPUT=$(                                   \
+    tesseract $TMP_FILE stdout             \ 
+    -c tessedit_char_whitelist="$WHITELIST"  \
+    -l eng --psm 1                          \
+    2>/dev/null | grep . )
+
+rm $TMP_FILE
+
+echo "$OUTPUT"
