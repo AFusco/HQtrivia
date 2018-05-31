@@ -5,6 +5,18 @@ import os
 import sys
 import json
 
+def best(results):
+    """
+    Return best score
+    """
+    return max(results, key=(lambda key: results[key]))
+
+def worst(results):
+    """
+    Return worst score
+    """
+    return min(results, key=(lambda key: results[key]))
+
 class Guesser:
     def guess(self, question, options):
         raise NotImplementedError()
@@ -13,11 +25,27 @@ class Searcher:
     def search(self, query):
         raise NotImplementedError()
 
+class Aggregator(Guesser):
+    """
+    Combine the result of multiple guessers
+    """
+    def __init__(self, guessers):
+        self.guessers = guessers
 
-class BingSearcher:
+    def guess(self, question, options):
+        #TODO: parallelize
+        pass
+
+    def get_final_result(self, question, results):
+        if question.contains('NOT'):
+            return worst(results)
+        else:
+            return best(results)
+
+
+class BingSearcher(Searcher):
 
     url = 'https://api.cognitive.microsoft.com/bing/v7.0/search'
-    headers = {'Ocp-Apim-Subscription-Key': ''}
 
     def __init__(self, token):
         self.headers = {'Ocp-Apim-Subscription-Key': token}
@@ -29,6 +57,12 @@ class BingSearcher:
         return response.json()
 
 class ResultsGuesser(Guesser):
+    """
+    Search web for:
+        question + "option"
+    Return the number of results for each search
+    """
+
     def __init__(self, searcher):
         self.searcher = searcher
 
@@ -47,15 +81,46 @@ class ResultsGuesser(Guesser):
 
         return results
 
-def best(results):
-    return max(results, key=(lambda key: results[key]))
+class FrequencyGuesser(Guesser):
+    """
+    Search for question
+    Count the number of times each option appears.
+
+    TODO: Find a way to treat multi-word options 
+    """
+    def __init__(self, searcher):
+        self.searcher = searcher
+
+    def guess(self, question, options):
+        results = {}
+
+        answer = self.searcher.search(question)
+
+        for opt in options:
+            results[opt] = 0
+
+        for a in answer['webPages']['value']:
+            for opt in options:
+                results[opt] += a['snippet'].count(min(opt.split(' '), key=(lambda x: a['snippet'].count(x))))
+
+        return results
+
+
 
 def _q(string):
     return '"' + string + '"'
 
 def main():
-    data = json.load(sys.stdin)
-    s = BingSearcher(os.environ['BING_API_KEY'])
+    try:
+        data = json.load(sys.stdin)
+    except:
+        raise ValueError("Non ho ottenuto il json di input correttamente")
+
+    try:
+        s = BingSearcher(os.environ['BING_API_KEY'])
+    except:
+        raise ValueError("Non è stata impostata la key di bing correttamente")
+
     g = ResultsGuesser(s)
 
     print(json.dumps(data, indent=4))
