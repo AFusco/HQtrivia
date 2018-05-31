@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 WHITELIST="$(cat $SCRIPTPATH/../config/alphabet)"
 TMP_FILE=$(mktemp /tmp/hqtrivia.XXXXXX.png)
@@ -21,14 +23,10 @@ fi
 
 
 # Run Text cleaning
-$SCRIPTPATH/textcleaner -g "$1" "$TMP_FILE"
+$SCRIPTPATH/textcleaner -g "$1" "$TMP_FILE" 2> /dev/null
 
-OUTPUT=$(                                   \
-    tesseract $TMP_FILE stdout             \ 
-    -c tessedit_char_whitelist="$WHITELIST"  \
-    -l eng --psm 1                          \
-    2>/dev/null | grep . )
+tesseract $TMP_FILE stdout -c tessedit_char_whitelist="$WHITELIST" -l eng --psm 1 2> /dev/null | grep . 2> /dev/null
+
 
 rm $TMP_FILE
-
 echo "$OUTPUT"
